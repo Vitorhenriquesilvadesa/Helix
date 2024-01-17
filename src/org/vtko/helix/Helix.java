@@ -73,12 +73,17 @@ public class Helix {
         List<Token> tokens = scanner.scanTokens();
 
         Parser parser = new Parser(tokens);
-        Expr expression = parser.parse();
+        List<Stmt> statements = parser.parse();
 
         // Stop if there was a syntax error.
         if (hadError) return;
 
-        interpreter.interpret(expression);
+        Resolver resolver = new Resolver(interpreter);
+        resolver.resolve(statements);
+
+        if (hadError) return;
+
+        interpreter.interpret(statements);
 
         //System.out.println(new AstPrinter().print(expression));
     }
@@ -86,6 +91,11 @@ public class Helix {
     static void runtimeError(RuntimeError error) {
         System.err.println(error.getMessage() +
                 "\n[line " + error.token.line + "]");
+        hadRuntimeError = true;
+    }
+
+    public static void exception(HelixException exception) {
+        System.err.println(exception.getMessage());
         hadRuntimeError = true;
     }
 }

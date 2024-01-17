@@ -23,11 +23,14 @@ class Scanner {
         keywords.put("else", ELSE);
         keywords.put("false", FALSE);
         keywords.put("for", FOR);
+        keywords.put("break", BREAK);
+        keywords.put("continue", CONTINUE);
         keywords.put("def", DEF);
         keywords.put("if", IF);
         keywords.put("null", NULL);
         keywords.put("or", OR);
-        keywords.put("print", PRINT);
+        // print statement has been removed from helix.
+        //keywords.put("print", PRINT);
         keywords.put("return", RETURN);
         keywords.put("super", SUPER);
         keywords.put("this", THIS);
@@ -71,6 +74,12 @@ class Scanner {
             case '}':
                 addToken(RIGHT_BRACE);
                 break;
+            case '[':
+                addToken(LEFT_BRACKET);
+                break;
+            case ']':
+                addToken(RIGHT_BRACKET);
+                break;
             case ',':
                 addToken(COMMA);
                 break;
@@ -104,6 +113,10 @@ class Scanner {
 
             case ':':
                 addToken(match(':') ? DOUBLE_COLON : COLON);
+                break;
+
+            case '?':
+                addToken(match('?') ? DOUBLE_QUESTION : QUESTION);
                 break;
 
             case '/':
@@ -157,9 +170,7 @@ class Scanner {
     }
 
     private boolean isAlpha(char c) {
-        return (c >= 'a' && c <= 'z') ||
-                (c >= 'A' && c <= 'Z') ||
-                c == '_';
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
     }
 
     private boolean isAlphaNumeric(char c) {
@@ -221,8 +232,7 @@ class Scanner {
             while (isDigit(peek())) advance();
         }
 
-        addToken(NUMBER,
-                Float.parseFloat(source.substring(start, current)));
+        addToken(NUMBER, Float.parseFloat(source.substring(start, current)));
     }
 
     private char peekNext() {

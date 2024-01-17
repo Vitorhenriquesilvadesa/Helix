@@ -1,29 +1,34 @@
-namespace Test {
-    class ConcreteClass : AbstractClass {
+class Vector2 {
 
-        var a
-        var b
 
-        def constructor(var a, var b) {
-            this.a = a
-            this.b = b
-        }
 
-        def concreteMethod() {
-            if (a >= b) {
-                print "Hello World"
-            }
-            print "This is a concrete method"
-        }
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    xy() {
+        return Vector2(this.x, this.y);
+    }
+
+    x() {
+        return this.x;
+    }
+
+    y() {
+        return this.y;
+    }
+
+    toString() {
+        return "{" + this.x + ", " + this.y + "}";
     }
 }
 
-def main(args) {
+class Point : Vector2 {
 
-    var Window = Window(800, 600, "Hello World", true)
-
-    var firstScene = Scene()
-    firstScene.addLayer("background")
 }
 
-// Comment
+var point = Point(10, 20);
+
+println(point.toString());
+

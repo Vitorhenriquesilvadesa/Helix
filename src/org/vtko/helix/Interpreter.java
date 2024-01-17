@@ -1,21 +1,109 @@
 package org.vtko.helix;
 
-@SuppressWarnings("ALL")
-public class Interpreter implements Expr.Visitor<Object> {
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
 
-    void interpret(Expr expression) {
+
+@SuppressWarnings("ALL")
+public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
+
+    //    void interpret(Expr expression) {
+//        try {
+//            Object value = evaluate(expression);
+//            System.out.println(stringify(value));
+//        } catch (RuntimeError error) {
+//            Helix.runtimeError(error);
+//        }
+//    }
+    final Environment globals = new Environment();
+    private Environment environment = globals;
+    private final Map<Expr, Integer> locals = new HashMap<>();
+
+    Interpreter() {
+        StdLibrary.defineNativeFunctions(globals);
+    }
+
+    Environment getGlobals() {
+        return this.globals;
+    }
+
+    void interpret(List<Stmt> statements) {
         try {
-            Object value = evaluate(expression);
-            System.out.println(stringify(value));
+            for (Stmt statement : statements) {
+                execute(statement);
+            }
         } catch (RuntimeError error) {
             Helix.runtimeError(error);
+        } catch (HelixException error) {
+            Helix.exception(error);
         }
     }
 
+    private void execute(Stmt stmt) {
+        stmt.accept(this);
+    }
+
+    void resolve(Expr expr, int depth) {
+        locals.put(expr, depth);
+    }
+
     @Override
-    public Object visitAssignExpr(Expr.Assign expr) {
+    public Void visitBlockStmt(Stmt.Block stmt) {
+        executeBlock(stmt.statements, new Environment(environment));
         return null;
     }
+
+    @Override
+    public Void visitClassStmt(Stmt.Class stmt) {
+
+        Object superclass = null;
+        if (stmt.superclass != null) {
+            superclass = evaluate(stmt.superclass);
+            if (!(superclass instanceof HelixClass)) {
+                throw new RuntimeError(stmt.superclass.name, "Superclass must be a class.");
+            }
+        }
+
+        environment.define(stmt.name.lexeme, null);
+
+        if (stmt.superclass != null) {
+            environment = new Environment(environment);
+            environment.define("super", superclass);
+        }
+
+        Map<String, HelixFunction> methods = new HashMap<>();
+
+        for (Stmt.Function method : stmt.methods) {
+            HelixFunction function = new HelixFunction(method, environment, false);
+            methods.put(method.name.lexeme, function);
+        }
+
+        HelixClass klass = new HelixClass(stmt.name.lexeme, (HelixClass) superclass, methods);
+
+        if (superclass != null) {
+            environment = environment.enclosing;
+        }
+
+        environment.assign(stmt.name, klass);
+
+        return null;
+    }
+
+    void executeBlock(List<Stmt> statements, Environment environment) {
+        Environment previous = this.environment;
+        try {
+            this.environment = environment;
+
+            for (Stmt statement : statements) {
+                execute(statement);
+            }
+        } finally {
+            this.environment = previous;
+        }
+    }
+
 
     @Override
     public Object visitBinaryExpr(Expr.Binary expr) {
@@ -55,8 +143,25 @@ public class Interpreter implements Expr.Visitor<Object> {
                 return (float) left / (float) right;
 
             case STAR:
-                checkNumberOperands(expr.operator, left, right);
-                return (float) left * (float) right;
+
+                if (left instanceof Float && right instanceof String) {
+                    StringBuilder builder = new StringBuilder();
+                    for (int i = 0; i < (float) left; i++) {
+                        builder.append(right);
+                    }
+                    return builder.toString();
+                } else if (left instanceof String && right instanceof Float) {
+                    StringBuilder builder = new StringBuilder();
+                    for (int i = 0; i < (float) right; i++) {
+                        builder.append(left);
+                    }
+                    return builder.toString();
+                } else if (left instanceof Float && right instanceof Float) {
+                    return (float) left * (float) right;
+                } else {
+                    checkNumberOperands(expr.operator, expr.left, expr.right);
+                }
+
 
             case PLUS:
                 if (left instanceof Float && right instanceof Float) {
@@ -67,12 +172,29 @@ public class Interpreter implements Expr.Visitor<Object> {
                     return (String) left + (String) right;
                 }
 
-                throw new RuntimeError(expr.operator,
-                        "Operands must be two numbers or two strings.");
+                if (left instanceof Float && right instanceof String) {
+                    return stringify((Float) left) + (String) right;
+                }
+
+                if (left instanceof String && right instanceof Float) {
+                    return (String) left + stringify((Float) right);
+                }
+
+                throw new RuntimeError(expr.operator, "Operands must be numbers or strings.");
         }
 
         // Unreachable.
         return null;
+    }
+
+    @Override
+    public Object visitTernaryExpr(Expr.Ternary expr) {
+        boolean condition = (boolean) evaluate(expr.condition);
+        if (condition) {
+            return evaluate(expr.left);
+        }
+
+        return evaluate(expr.right);
     }
 
     private void checkNumberOperand(Token operator, Object operand) {
@@ -93,12 +215,34 @@ public class Interpreter implements Expr.Visitor<Object> {
 
     @Override
     public Object visitCallExpr(Expr.Call expr) {
-        return null;
+        Object callee = evaluate(expr.callee);
+        List<Object> arguments = new ArrayList<>();
+
+        for (Expr argument : expr.arguments) {
+            arguments.add(evaluate(argument));
+        }
+
+        if (!(callee instanceof HelixCallable)) {
+            throw new RuntimeError(expr.paren, "Can only call functions and classes.");
+        }
+
+        HelixCallable function = (HelixCallable) callee;
+
+        if (arguments.size() != function.arity()) {
+            throw new RuntimeError(expr.paren, "Expected " + function.arity() + " arguments but got " + arguments.size() + ".");
+        }
+
+        return function.call(this, arguments);
     }
 
     @Override
     public Object visitGetExpr(Expr.Get expr) {
-        return null;
+        Object object = evaluate(expr.object);
+        if (object instanceof HelixInstance) {
+            return ((HelixInstance) object).get(expr.name);
+        }
+
+        throw new RuntimeError(expr.name, "Only instances have properties.");
     }
 
     @Override
@@ -117,22 +261,53 @@ public class Interpreter implements Expr.Visitor<Object> {
 
     @Override
     public Object visitLogicalExpr(Expr.Logical expr) {
-        return null;
+        Object left = evaluate(expr.left);
+
+        if (expr.operator.type == TokenType.OR) {
+            if (isTruthy(left)) {
+                return left;
+            }
+        } else {
+            if (!isTruthy(left)) {
+                return left;
+            }
+        }
+
+        return evaluate(expr.right);
     }
 
     @Override
     public Object visitSetExpr(Expr.Set expr) {
-        return null;
+        Object object = evaluate(expr.object);
+
+        if (!(object instanceof HelixInstance)) {
+            throw new RuntimeError(expr.name, "Only instances have fields.");
+        }
+
+        Object value = evaluate(expr.value);
+        ((HelixInstance) object).set(expr.name, value);
+        return value;
     }
 
     @Override
     public Object visitSuperExpr(Expr.Super expr) {
-        return null;
+        int distance = locals.get(expr);
+        HelixClass superclass = (HelixClass) environment.getAt(distance, "super");
+
+        HelixInstance object = (HelixInstance) environment.getAt(distance - 1, "this");
+
+        HelixFunction method = superclass.findMethod(expr.method.lexeme);
+
+        if (method == null) {
+            throw new RuntimeError(expr.method, "Undefined property '" + expr.method.lexeme + "'.");
+        }
+
+        return method.bind(object);
     }
 
     @Override
     public Object visitThisExpr(Expr.This expr) {
-        return null;
+        return lookUpVariable(expr.keyword, expr);
     }
 
     @Override
@@ -153,7 +328,16 @@ public class Interpreter implements Expr.Visitor<Object> {
 
     @Override
     public Object visitVariableExpr(Expr.Variable expr) {
-        return null;
+        return lookUpVariable(expr.name, expr);
+    }
+
+    private Object lookUpVariable(Token name, Expr expr) {
+        Integer distance = locals.get(expr);
+        if (distance != null) {
+            return environment.getAt(distance, name.lexeme);
+        } else {
+            return globals.get(name);
+        }
     }
 
     private boolean isTruthy(Object object) {
@@ -182,4 +366,84 @@ public class Interpreter implements Expr.Visitor<Object> {
 
         return object.toString();
     }
+
+    @Override
+    public Void visitExpressionStmt(Stmt.Expression stmt) {
+        evaluate(stmt.expression);
+        return null;
+    }
+
+    @Override
+    public Void visitIfStmt(Stmt.If stmt) {
+        if (isTruthy(evaluate(stmt.condition))) {
+            execute(stmt.thenBranch);
+        } else if (stmt.elseBranch != null) {
+            execute(stmt.elseBranch);
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitFunctionStmt(Stmt.Function stmt) {
+        HelixFunction function = new HelixFunction(stmt, environment, false);
+        environment.define(stmt.name.lexeme, function);
+        return null;
+    }
+
+    @Override
+    public Void visitPrintStmt(Stmt.Print stmt) {
+        Object value = evaluate(stmt.expression);
+        System.out.println(stringify(value));
+        return null;
+    }
+
+    @Override
+    public Void visitReturnStmt(Stmt.Return stmt) {
+        Object value = null;
+
+        if (stmt.value != null) {
+            value = evaluate(stmt.value);
+        }
+
+        throw new Return(value);
+    }
+
+    @Override
+    public Void visitVarStmt(Stmt.Var stmt) {
+        Object value = null;
+        if (stmt.initializer != null) {
+            value = evaluate(stmt.initializer);
+        }
+
+        environment.define(stmt.name.lexeme, value);
+        return null;
+    }
+
+    @Override
+    public Void visitAssignStmt(Stmt.Assign stmt) {
+        return null;
+    }
+
+    @Override
+    public Void visitWhileStmt(Stmt.While stmt) {
+        while (isTruthy(evaluate(stmt.condition))) {
+            execute(stmt.body);
+        }
+        return null;
+    }
+
+    @Override
+    public Object visitAssignExpr(Expr.Assign expr) {
+        Object value = evaluate(expr.value);
+
+        Integer distance = locals.get(expr);
+        if (distance != null) {
+            environment.assignAt(distance, expr.name, value);
+        } else {
+            globals.assign(expr.name, value);
+        }
+
+        return value;
+    }
+
 }

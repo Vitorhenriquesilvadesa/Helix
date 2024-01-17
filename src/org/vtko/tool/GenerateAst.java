@@ -2,16 +2,18 @@ package org.vtko.tool;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
 
 public class GenerateAst {
     public static void main(String[] args) throws IOException {
-        String input = new Scanner(System.in).nextLine();
+        String input = "C:\\Github\\Java\\Helix\\src\\org\\vtko\\helix";
         defineAst(input, "Expr", Arrays.asList(
                 "Assign   : Token name, Expr value",
                 "Binary   : Expr left, Token operator, Expr right",
+                "Ternary  : Expr condition, Expr left, Expr right",
                 "Call     : Expr callee, Token paren, List<Expr> arguments",
                 "Get      : Expr object, Token name",
                 "Grouping : Expr expression",
@@ -23,6 +25,22 @@ public class GenerateAst {
                 "Unary    : Token operator, Expr right",
                 "Variable : Token name"
         ));
+
+        defineAst(input, "Stmt", Arrays.asList(
+                "Block      : List<Stmt> statements",
+                "Class      : Token name, Expr.Variable superclass," +
+                        " List<Stmt.Function> methods",
+                "Expression : Expr expression",
+                "If         : Expr condition, Stmt thenBranch," +
+                        " Stmt elseBranch",
+                "Function   : Token name, List<Token> params," +
+                        " List<Stmt> body",
+                "Print      : Expr expression",
+                "Return     : Token keyword, Expr value",
+                "Var        : Token name, Expr initializer",
+                "Assign     : Token name, Expr value",
+                "While      : Expr condition, Stmt body"
+        ));
     }
 
     private static void defineAst(
@@ -30,7 +48,7 @@ public class GenerateAst {
             throws IOException {
         String path = outputDir + "/" + baseName + ".java";
         System.out.println("Path: " + path);
-        PrintWriter writer = new PrintWriter(path, "UTF-8");
+        PrintWriter writer = new PrintWriter(path, StandardCharsets.UTF_8);
 
         writer.println("package org.vtko.helix;");
         writer.println();
@@ -95,4 +113,6 @@ public class GenerateAst {
 
         writer.println("  }");
     }
+
+
 }

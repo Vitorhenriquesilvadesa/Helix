@@ -3,7 +3,7 @@ package org.vtko.helix;
 public enum TokenType {
 
     // Single-character tokens.
-    LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE,
+    LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, LEFT_BRACKET, RIGHT_BRACKET, QUESTION, DOUBLE_QUESTION,
     COMMA, DOT, MINUS, PLUS, COLON, DOUBLE_COLON, SEMICOLON, SLASH, STAR,
 
     // One or two character tokens.
@@ -16,7 +16,7 @@ public enum TokenType {
     IDENTIFIER, STRING, NUMBER,
 
     // Keywords.
-    AND, CLASS, ELSE, FALSE, DEF, FOR, IF, NULL, OR,
+    AND, CLASS, ELSE, FALSE, DEF, FOR, IF, NULL, OR, BREAK, CONTINUE,
     PRINT, RETURN, SUPER, THIS, TRUE, VAR, WHILE, NAMESPACE,
 
     EOF
