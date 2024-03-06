@@ -45,6 +45,7 @@ class Scanner {
     }
 
     List<Token> scanTokens() {
+        System.out.print("Scanning file.");
         while (!isAtEnd()) {
             start = current;
             scanToken();
@@ -176,7 +177,7 @@ class Scanner {
     private boolean isAlphaNumeric(char c) {
         return isAlpha(c) || isDigit(c);
     }
-
+    
     private void string() {
         while (peek() != '"' && !isAtEnd()) {
             if (peek() == '\n') line++;
@@ -225,14 +226,13 @@ class Scanner {
     }
 
     private void number() {
-        while (isDigit(peek())) advance();
-
+        while (isDigit(peek()) || peek() == '_') advance();
         if (peek() == '.' && isDigit(peekNext())) {
             advance();
             while (isDigit(peek())) advance();
         }
 
-        addToken(NUMBER, Float.parseFloat(source.substring(start, current)));
+        addToken(NUMBER, Float.parseFloat(source.substring(start, current).replaceAll("_", "")));
     }
 
     private char peekNext() {

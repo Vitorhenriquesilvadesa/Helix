@@ -21,9 +21,9 @@ public class Environment {
         if (values.containsKey(name.lexeme)) {
             Object variableValue = values.get(name.lexeme);
 
-            if(variableValue == null) {
-                throw new RuntimeError(name, "The variable '" + name.lexeme + "' must be initialized before using.");
-            }
+//            if(variableValue == null) {
+//                throw new RuntimeError(name, "The variable '" + name.lexeme + "' must be initialized before using.");
+//            }
 
             return variableValue;
         }

@@ -21,6 +21,7 @@ public class Parser {
 
     List<Stmt> parse() {
         List<Stmt> statements = new ArrayList<>();
+        System.out.print("\rParsing Helix tokens.");
         while (!isAtEnd()) {
             statements.add(declaration());
         }

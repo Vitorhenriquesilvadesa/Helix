@@ -30,6 +30,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
 
     void interpret(List<Stmt> statements) {
+        System.out.print("\r");
         try {
             for (Stmt statement : statements) {
                 execute(statement);
